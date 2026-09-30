@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# runtime output (downloaded videos, partial files)
+downloads/
+*.part
+*.ytdl
+
+# local config / secrets
+.env
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# agent tooling
+.zcode/
+
+# logs
+*.log

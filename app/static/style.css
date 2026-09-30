@@ -1,0 +1,179 @@
+:root {
+  --bg: #0e1320;
+  --card: #171f31;
+  --card-border: #263149;
+  --text: #e8ecf5;
+  --muted: #8b96ad;
+  --accent: #6c7bff;
+  --accent-2: #8b5cf6;
+  --ok: #34d399;
+  --warn: #fbbf24;
+  --err: #f87171;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, "Noto Sans Thai", "Sukhumvit Set", -apple-system, sans-serif;
+  line-height: 1.5;
+}
+
+.container { max-width: 780px; margin: 0 auto; padding: 32px 16px 64px; }
+
+header h1 { margin: 0 0 4px; font-size: 28px; }
+.subtitle { margin: 0 0 24px; color: var(--muted); }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 18px;
+}
+
+.card h2 { margin: 0 0 12px; font-size: 18px; }
+
+.url-row { display: flex; gap: 10px; }
+.url-row input { flex: 1; }
+
+input[type="url"], input[type="text"] {
+  background: #0e1526;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 11px 14px;
+  font-size: 15px;
+  outline: none;
+}
+input:focus { border-color: var(--accent); }
+
+button {
+  background: #232d47;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 11px 18px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+button:hover { filter: brightness(1.2); }
+button:disabled { opacity: 0.5; cursor: wait; }
+
+button.primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border: none;
+  font-weight: 600;
+}
+
+.settings-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+}
+.settings-row label { color: var(--muted); font-size: 14px; white-space: nowrap; }
+.settings-row input { flex: 1; font-size: 13px; padding: 8px 12px; }
+
+.status, .error {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+.status { background: #1c2742; color: #aebbff; }
+.error { background: #3a1d24; color: #ffb4b4; white-space: pre-wrap; }
+
+.hidden { display: none; }
+.muted { color: var(--muted); font-size: 14px; }
+
+table.formats { width: 100%; border-collapse: collapse; margin: 8px 0 14px; }
+table.formats th, table.formats td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--card-border);
+  font-size: 14px;
+}
+table.formats th { color: var(--muted); font-weight: 600; }
+table.formats tr:hover td { background: #1c2742; }
+
+.result-actions { display: flex; align-items: center; gap: 14px; }
+
+.job {
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  background: #131b2e;
+}
+.job-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+}
+.job-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.badge {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.badge.queued      { background: #2a3352; color: #aab4d8; }
+.badge.extracting  { background: #233a5e; color: #8ec2ff; }
+.badge.downloading { background: #1d3a63; color: #7fc4ff; }
+.badge.processing  { background: #3c3260; color: #c4b0ff; }
+.badge.done        { background: #14432f; color: var(--ok); }
+.badge.error       { background: #431d24; color: var(--err); }
+.badge.cancelled   { background: #33333d; color: #9aa0b0; }
+
+.progress-track {
+  height: 8px;
+  border-radius: 999px;
+  background: #0e1526;
+  margin: 10px 0 6px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 0.4s ease;
+}
+.progress-fill.indeterminate {
+  width: 40% !important;
+  animation: slide 1.2s ease-in-out infinite alternate;
+}
+@keyframes slide {
+  from { margin-left: 0; }
+  to { margin-left: 60%; }
+}
+
+.job-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.job-meta .btn-cancel {
+  background: none;
+  border: none;
+  color: var(--err);
+  padding: 0;
+  font-size: 13px;
+  cursor: pointer;
+}
+.job-error { color: var(--err); font-size: 13px; margin-top: 6px; white-space: pre-wrap; }
+.job-file { color: var(--ok); font-size: 13px; margin-top: 6px; word-break: break-all; }
+
+footer { text-align: center; margin-top: 28px; }

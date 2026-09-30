@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VDO Downloader</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="container">
+    <header>
+      <h1>🎬 VDO Downloader</h1>
+      <p class="subtitle">วางลิงก์หนัง/อนิเมะ แล้วดาวน์โหลดเป็นไฟล์ไว้ดูออฟไลน์</p>
+    </header>
+
+    <section class="card">
+      <div class="url-row">
+        <input id="url" type="url" placeholder="วางลิงก์หน้าเว็บที่ดูวิดีโออยู่ แล้วกด Enter..." autofocus>
+        <button id="btn-extract">ตรวจสอบ</button>
+      </div>
+      <div class="settings-row">
+        <label for="outdir">📁 โฟลเดอร์ปลายทาง</label>
+        <input id="outdir" type="text" spellcheck="false" placeholder="กำลังโหลดค่าเริ่มต้น...">
+      </div>
+      <div id="extract-status" class="status hidden">⏳ กำลังตรวจสอบลิงก์... (เว็บที่ซ่อนวิดีโอดี ๆ ต้องเปิดเบราว์เซอร์สแกน ใช้เวลา 30-60 วินาที)</div>
+      <div id="extract-error" class="error hidden"></div>
+    </section>
+
+    <section id="result" class="card hidden">
+      <h2 id="result-title"></h2>
+      <p id="result-source" class="muted"></p>
+      <table class="formats">
+        <thead>
+          <tr><th></th><th>คุณภาพ</th><th>ประเภท</th><th>ขนาดโดยประมาณ</th></tr>
+        </thead>
+        <tbody id="formats-body"></tbody>
+      </table>
+      <div class="result-actions">
+        <button id="btn-download" class="primary">⬇ เพิ่มเข้าคิวดาวน์โหลด</button>
+        <span id="download-ack" class="muted hidden">✓ เพิ่มเข้าคิวแล้ว</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>คิวดาวน์โหลด</h2>
+      <div id="jobs"><p class="muted">ยังไม่มีงาน — วางลิงก์ด้านบนเพื่อเริ่ม</p></div>
+    </section>
+
+    <footer class="muted">ใช้ส่วนตัวเพื่อดูออฟไลน์เท่านั้น · เซิร์ฟเวอร์รันที่ 127.0.0.1 (เข้าถึงจากเครื่องนี้เท่านั้น)</footer>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
