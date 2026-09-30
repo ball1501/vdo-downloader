@@ -12,7 +12,10 @@ import uuid
 
 import yt_dlp
 
-from . import extractor
+from . import extractor, ytstrip
+
+# transparently unwrap CDNs that disguise video segments as PNG/.webp files
+ytstrip.install()
 
 MAX_HISTORY = 100
 

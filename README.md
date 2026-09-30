@@ -42,6 +42,8 @@
    - ดักฟัง network request ทั้งหมด รอ `master.m3u8` (กันหลง mp4 โฆษณา)
    - ได้ URL จริง **พร้อม Referer/Origin/UA/Cookie ที่ player ใช้จริง** → ส่งต่อให้ตัวดาวน์โหลด replay ตอนโหลดไฟล์ (CDN พวกนี้เช็ค header อีกชั้น)
 
+4. **แกะ segment ที่แปลงร่าง** (`app/ytstrip.py`) — CDN บางเจ้า (เช่น ตระกูล fastfastcdn) หุ้ม segment MPEG-TS ด้วยหัว PNG ปลอม ~545 ไบต์ และตั้งชื่อไฟล์เป็น `.webp` ทำให้ ffmpeg merge ไม่ได้ (`Postprocessing: Error opening output files`) ตัว patch ระดับ HTTP ของ yt-dlp จะตัดหัวปลอมออกและแก้ Content-Length ให้ตรงโดยอัตโนมัติ — response ปกติไม่ถูกแตะ
+
 ## ถ้าเว็บไหนยังติด
 
 - ลองวางลิงก์ **iframe ของ player** โดยตรง (คลิกขวาที่ player → Inspect → หา `<iframe src="...">`)
