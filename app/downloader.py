@@ -230,7 +230,7 @@ class JobManager:
                 self._bump()
 
         opts = {
-            "outtmpl": os.path.join(job.outdir, "%(title)s.%(ext)s"),
+            "outtmpl": os.path.join(job.outdir, _outtmpl_base(job.title)),
             "format": _format_selector(job.format_id),
             "progress_hooks": [hook],
             "postprocessor_hooks": [pp_hook],
@@ -298,6 +298,15 @@ def _write_cookie_file(cookies: list) -> str | None:
                 f"{c.get('name')}\t{c.get('value')}\n"
             )
     return path
+
+
+def _outtmpl_base(title: str | None) -> str:
+    """Prefer the human title for the filename; fall back to the stream's
+    own (often an opaque id like dWE9zvPZ)."""
+    t = (title or "").strip()
+    if t:
+        return t.replace("/", "_").replace("\\", "_") + ".%(ext)s"
+    return "%(title)s.%(ext)s"
 
 
 def _format_selector(format_id: str) -> str:

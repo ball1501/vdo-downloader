@@ -44,6 +44,11 @@ CLICK_SELECTORS = [
     "#banner_popup button",
     "[id*='banner' i] button",
     "[id*='popup' i] button",
+    # Abyss-family ad gate: the overlay consumes one popup per click and
+    # needs exactly two before it removes itself; its onclick is assigned
+    # from JS so [onclick] can't see it (two aliases = two clicks)
+    "#overlay",
+    "div#overlay",
     ".jw-icon-playback",
     ".vjs-big-play-button",
     ".button_style button",
@@ -100,6 +105,32 @@ def _fixup_lazy_iframes(page) -> None:
             frame.evaluate(_LAZY_IFRAME_JS)
         except Exception:  # noqa: BLE001 - frame gone / not ready
             continue
+
+
+def _rearm_if_paused(page, tried: dict) -> None:
+    """Players often pause again after a pre-roll finishes (or autoplay is
+    blocked mid-flow) — and some pre-rolls simply stall on their last frame.
+    Force stalled videos to their end (firing the ad-complete handlers) and
+    re-arm play buttons while nothing has been captured yet."""
+    for frame in [page] + list(page.frames):
+        try:
+            paused = frame.evaluate(
+                "() => { const v = document.querySelector('video');"
+                " if (!v || v.readyState < 1) return false;"
+                " if (v.paused && v.duration && v.currentTime < v.duration - 0.2)"
+                " { try { v.currentTime = v.duration; } catch (e) {} }"
+                " return v.paused; }"
+            )
+        except Exception:  # noqa: BLE001
+            continue
+        if not paused:
+            continue
+        prefix = frame.url or "page"
+        for key in [
+            k for k in tried
+            if k[0] == prefix and k[1] in _PLAY_AGAIN_SELECTORS and tried[k] == _DONE
+        ]:
+            del tried[key]
 
 
 def _host(url: str) -> str:
@@ -201,6 +232,18 @@ def _click_matches(frame, key_prefix: str, sel: str, tried: dict, max_retries: i
                 ready = True
             if not ready:
                 continue  # don't burn the attempt, retry next cycle
+        # a skip button still counting down ("ข้ามโฆษณาใน 3 วิ") is a no-op —
+        # wait until its text has no digits left
+        if sel == ".jw-skip":
+            try:
+                txt = frame.evaluate(
+                    "() => { const s = document.querySelector('.jw-skip');"
+                    " return s ? s.innerText : ''; }"
+                )
+                if txt and re.search(r"\d", txt):
+                    continue
+            except Exception:  # noqa: BLE001
+                pass
         try:
             matches.nth(i).click(timeout=800)
             tried[key] = _DONE  # succeeded — never click again (it would toggle)
@@ -293,7 +336,7 @@ def _fulfill_ad(route) -> None:
 
 def sniff_media(
     url: str,
-    timeout: float = 75.0,
+    timeout: float = 85.0,
     user_agent: str = USER_AGENT,
     referer: str | None = None,
 ) -> dict | None:
@@ -410,6 +453,7 @@ def sniff_media(
         while time.time() < deadline:
             _fixup_lazy_iframes(page)
             _try_clicks(page, tried)
+            _rearm_if_paused(page, tried)
 
             # a manifest (master or variant) is all we need — stop clicking
             if any(m.get("mime") or ".m3u8" in m["url"].lower() for m in captured):
@@ -418,7 +462,7 @@ def sniff_media(
             # give the current server time to prove itself, then try the next
             if servers is None:
                 servers = server_matches(page)
-            needed_dwell = 6 if _has_dead_frame(page) else 25
+            needed_dwell = 6 if _has_dead_frame(page) else 35
             if (
                 servers
                 and server_i < len(servers)

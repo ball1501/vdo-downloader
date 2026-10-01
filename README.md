@@ -36,7 +36,8 @@
    - ไล่ iframe ได้ลึก 2 ชั้น พร้อมแนบ Referer ของหน้าแม่ทุกชั้น
    - อ่าน player URL ที่แปะไว้ใน query string (`?link=...`) และตัวแปรแบบ `window.destinationURL` — ใช้ข้ามหน้าโฆษณา pre-roll ไปเปิด player จริงเลย
    - กรอง mp4 โฆษณาทิ้ง (อิงบริบท `adSettings`/`adverts`/`skipSeconds` + โดเมนโฆษณาที่รู้จัก)
-3. **สแกนด้วยเบราว์เซอร์จริง (headless Edge/Chrome ผ่าน Playwright)** — สำหรับเว็บที่ player เรียก API เอา m3u8 ตอนกดเล่น เช่น jwplayer ที่ config มีแต่ `vdoId`:
+3. **Abyss/tonytonychopper-family extractor** (`app/abyss.py`) — สำหรับเว็บอย่าง FairAnime: player ตระกูลนี้ซ่อน URL จริงไว้ใน JS แบบ packed หลายชั้น (`Cookie.Run('<base64>')`) — แกะด้วย Node.js แบบ static (เร็ว ไม่ต้องเปิดเบราว์เซอร์) พร้อม cookie session ตลอดสาย (server ของ m3u8 ตอบ `null` ถ้าไม่มี cookie จากขั้นก่อนหน้า) และต้องส่ง `Accept: */*` เท่านั้น (Accept แบบ HTML จะโดนตอบ `null`)
+4. **สแกนด้วยเบราว์เซอร์จริง (headless Edge/Chrome ผ่าน Playwright)** — สำหรับเว็บที่ player เรียก API เอา m3u8 ตอนกดเล่น เช่น jwplayer ที่ config มีแต่ `vdoId`:
    - เปิดหน้า player (เลือกเปิด player URL ที่ขุดได้จากขั้น 2 ก่อน — ไม่ต้องเจอโฆษณา)
    - จัดการอัตโนมัติ: ย้าย `data-src` → `src` ของ lazy iframe, กดปุ่มข้ามโฆษณา/ปิด popup/กดเล่น (คลิกธรรมดาไม่ได้เมื่อไหร่สลับเป็น JS click), กดเลือกเซิร์ฟเวอร์ทีละตัว (ธีม Dooplay — server แรกมักตาย)
    - ดักฟังทั้ง request และ response — manifest ของ hls.js ที่ URL ไม่มีนามสกุลก็จับได้จาก content-type (`vnd.apple.mpegurl` / `dash+xml`)
@@ -52,7 +53,7 @@
 - เว็บที่ต้อง login: เพิ่ม `cookiefile` ใน `app/extractor.py` (`_ydl_options`) ได้
 - เว็บที่ใช้ DRM จริง (Widevine ฯลฯ) **ไม่รองรับ**
 - โดเมนโฆษณาตัวใหม่ที่หลุดกรอง: เพิ่มใน `SKIP_RE` ที่ `app/sniffer.py` ได้เลย
-- **ขีดจำกัดปัจจุบัน**: player host บางเจ้า (เช่น abyssplayer, marimo) fingerprint จับ headless browser และห้ามเล่น/redirect ออก — ตัว sniffer ยังเดินถึงหน้า player ได้แต่ player ไม่ยอมเริ่ม กรณีนี้ต้องเล่นผ่านเบราว์เซอร์จริงแล้วเอา URL m3u8 จาก DevTools มาวางแทน
+- **ขีดจำกัดปัจจุบัน**: player host บางเจ้า (เช่น abyssplayer ที่ animeruka ใช้) มี flow หลังโฆษณาที่ player bundle ของเขาควบคุมด้วย API ลับ — ตัว sniffer ผ่านประตู overlay/โฆษณาได้แล้วแต่จับยังไม่ถึง m3u8 กรณีนี้ต้องเล่นผ่านเบราว์เซอร์จริงแล้วเอา URL m3u8 จาก DevTools มาวางแทน (หรือใช้เว็บที่แจก server แบบ mp4 ตรง)
 
 ## โครงสร้างโค้ด
 

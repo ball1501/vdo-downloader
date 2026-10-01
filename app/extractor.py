@@ -15,6 +15,7 @@ returned to the downloader for the actual file transfer.
 
 from __future__ import annotations
 
+import os
 import re
 import urllib.parse
 from collections import deque
@@ -277,9 +278,41 @@ def _ydl_options(referer: str, timeout: int = 25, extra_headers: dict | None = N
     }
 
 
-def _extract_info(url: str, referer: str, timeout: int = 25, extra_headers: dict | None = None) -> dict:
-    with yt_dlp.YoutubeDL(_ydl_options(referer, timeout, extra_headers)) as ydl:
-        return ydl.extract_info(url, download=False)
+def _cookies_to_file(cookies: list) -> str:
+    """Write cookie dicts as a Netscape cookie file for yt-dlp."""
+    import tempfile
+
+    fd, path = tempfile.mkstemp(prefix="vdo-extract-", suffix=".txt")
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write("# Netscape HTTP Cookie File\n")
+        for c in cookies:
+            domain = c.get("domain") or ""
+            include_sub = "TRUE" if domain.startswith(".") else "FALSE"
+            expires = int(c.get("expires") or 2147483647) or 2147483647
+            fh.write(
+                f"{domain}\t{include_sub}\t{c.get('path') or '/'}\t"
+                f"{'TRUE' if c.get('secure') else 'FALSE'}\t{expires}\t"
+                f"{c.get('name')}\t{c.get('value')}\n"
+            )
+    return path
+
+
+def _extract_info(
+    url: str, referer: str, timeout: int = 25, extra_headers: dict | None = None,
+    cookies: list | None = None,
+) -> dict:
+    opts = _ydl_options(referer, timeout, extra_headers)
+    if cookies:
+        opts["cookiefile"] = _cookies_to_file(cookies)
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            return ydl.extract_info(url, download=False)
+    finally:
+        if cookies:
+            try:
+                os.unlink(opts["cookiefile"])
+            except OSError:
+                pass
 
 
 def _is_youtube(info: dict) -> bool:
@@ -417,6 +450,38 @@ def extract_formats(url: str, allow_browser: bool = True) -> dict:
                 }
         except Exception:  # noqa: BLE001 - try the next candidate
             continue
+
+    # 2.5) Abyss/tonytonychopper-family players: packed JS hides the HLS
+    # master inside Cookie.Run(base64) — unpack with Node (fast, no browser)
+    try:
+        from . import abyss
+
+        ar = abyss.extract(url)
+    except Exception as exc:  # noqa: BLE001
+        ar = None
+        errors.append(f"abyss: {exc}")
+    if ar:
+        try:
+            info = _first_entry(
+                _extract_info(
+                    ar["media_url"], referer=ar["player_url"],
+                    extra_headers=ar["headers"], cookies=ar.get("cookies"),
+                )
+            )
+            if not _is_youtube(info):
+                formats = _formats_from_info(info)
+                if formats:
+                    return {
+                        "title": ar.get("title")
+                        or _choose_title(info.get("title"), None, url),
+                        "formats": formats,
+                        "source": f"abyss: {ar['player_url']}",
+                        "media_url": ar["media_url"],
+                        "media_headers": ar["headers"],
+                        "cookies": ar.get("cookies"),
+                    }
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"abyss extract: {exc}")
 
     # 3) headless browser: open the real player page directly (skipping ad
     #    gates found in the HTML), click play, capture the media request
