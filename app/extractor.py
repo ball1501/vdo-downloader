@@ -504,26 +504,44 @@ def extract_formats(url: str, allow_browser: bool = True) -> dict:
             if not sniff:
                 continue
             sniffed_any = True
+            info = None
+            formats = []
             try:
                 info = _first_entry(
-                    _extract_info(sniff["url"], referer=ref, extra_headers=sniff["headers"])
+                    _extract_info(
+                        sniff["url"], referer=ref, extra_headers=sniff["headers"],
+                        cookies=sniff.get("cookies"),
+                    )
                 )
                 formats = _formats_from_info(info)
-                if formats:
-                    return {
-                        "title": _choose_title(
-                            info.get("title") or sniff.get("title"),
-                            probed.get("page_title"),
-                            url,
-                        ),
-                        "formats": formats,
-                        "source": f"browser: {sniff['url']}",
-                        "media_url": sniff["url"],
-                        "media_headers": sniff["headers"],
-                        "cookies": sniff.get("cookies"),
-                    }
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001 - the sniffed URL may reject
                 errors.append(f"browser extract: {exc}")
+                # still offer the captured URL as a single best-quality attempt:
+                # some hosts serve only to sessions that look like the player
+                ext = sniff["url"].rsplit(".", 1)[-1].split("?")[0][:5] or "mp4"
+                formats = [{
+                    "format_id": "best",
+                    "label": "ต้นฉบับ (original)",
+                    "ext": ext,
+                    "height": 0,
+                    "tbr": 0,
+                    "filesize": None,
+                    "vcodec": None,
+                    "acodec": None,
+                }]
+            if formats:
+                if info:
+                    chosen = _choose_title(info.get("title"), probed.get("page_title"), url)
+                else:
+                    chosen = probed.get("page_title") or url
+                return {
+                    "title": chosen,
+                    "formats": formats,
+                    "source": f"browser: {sniff['url']}",
+                    "media_url": sniff["url"],
+                    "media_headers": sniff["headers"],
+                    "cookies": sniff.get("cookies"),
+                }
         if not sniffed_any and not any(e.startswith("browser:") for e in errors):
             errors.append("browser: player ไม่ได้โหลดวิดีโอ (อาจต้องกดเลือกเซิร์ฟเวอร์/กดเล่นเอง)")
 

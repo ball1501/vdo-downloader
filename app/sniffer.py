@@ -154,7 +154,11 @@ def _is_master_playlist(url: str, referer: str | None, user_agent: str) -> bool:
 
 
 def _pick(captured: list[dict], user_agent: str) -> dict | None:
-    """Prefer master m3u8 > any m3u8 > mp4 (ads are usually plain mp4)."""
+    """Priority: confirmed-real (minutes-deep playback) > master m3u8 > any
+    m3u8 > mp4 (ads are usually plain mp4)."""
+    reals = [m for m in captured if m.get("real")]
+    if reals:
+        return reals[0]
     playlists = [m for m in captured if m.get("mime") or ".m3u8" in m["url"].lower()]
     mp4s = [m for m in captured if re.search(r"\.mp4(?:[?#]|$)", m["url"], re.I)]
     for m in playlists:
@@ -344,7 +348,7 @@ def _fulfill_ad(route) -> None:
 
 def sniff_media(
     url: str,
-    timeout: float = 85.0,
+    timeout: float = 150.0,
     user_agent: str = USER_AGENT,
     referer: str | None = None,
 ) -> dict | None:
@@ -361,8 +365,13 @@ def sniff_media(
     title = None
     _probe_budget = {"n": 0}
 
-    def _remember_media(u: str, h: dict, mime: bool = False) -> None:
+    def _remember_media(u: str, h: dict, mime: bool = False, real: bool = False) -> None:
         if any(m["url"] == u for m in captured):
+            # upgrade an existing entry to "real" if we now know it is
+            if real:
+                for m in captured:
+                    if m["url"] == u:
+                        m["real"] = True
             return
         captured.append(
             {
@@ -371,6 +380,7 @@ def sniff_media(
                 "origin": h.get("origin"),
                 "user_agent": h.get("user-agent") or user_agent,
                 "mime": mime,
+                "real": real,
             }
         )
 
@@ -489,6 +499,35 @@ def sniff_media(
             _fixup_lazy_iframes(page)
             _try_clicks(page, tried)
             _rearm_if_paused(page, tried)
+
+            # Abyss-family players host ads AND the real episode on the same
+            # CDN (mediastorage) — ads are short (<60s), the episode is long.
+            # A video whose DURATION exceeds 300s is the real episode, and its
+            # currentSrc works even while paused.
+            for frame in [page] + list(page.frames):
+                try:
+                    deep_src = frame.evaluate(
+                        "() => { const v = document.querySelector('video');"
+                        " return v && v.duration > 300 ? (v.currentSrc || v.src || '') : ''; }"
+                    )
+                except Exception:  # noqa: BLE001
+                    continue
+                if deep_src and not deep_src.startswith("blob:"):
+                    _remember_media(
+                        deep_src.split("#", 1)[0],
+                        {
+                            "referer": frame.url,
+                            "origin": "/".join(frame.url.split("/", 3)[:3]),
+                            "user-agent": user_agent,
+                        },
+                        real=True,
+                    )
+
+            best = _pick(captured, user_agent)
+            if best and best.get("real"):
+                break
+
+            best = _master(captured, user_agent)
 
             # a manifest (master or variant) is all we need — stop clicking
             if any(m.get("mime") or ".m3u8" in m["url"].lower() for m in captured):
