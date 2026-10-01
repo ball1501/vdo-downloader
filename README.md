@@ -4,6 +4,8 @@
 
 > ⚠️ ใช้เพื่อส่วนตัว/ดูออฟไลน์เท่านั้น กรุณาสนับสนุนผู้สร้างผลงานตัวจริงด้วย
 
+**ภาษา / Language:** [ไทย](#) · [English](#english-1)
+
 ## เริ่มใช้งาน
 
 ```bash
@@ -68,3 +70,79 @@ app/
 ```
 
 API สำหรับใช้จากสคริปต์อื่น: `POST /api/extract` {url}, `POST /api/download` {url, format_id, media_url?, media_headers?, cookies?}, `GET /api/jobs`, `GET /api/events` (SSE)
+
+---
+
+# 🎬 VDO Downloader (English)
+
+A local web tool for downloading videos from streaming sites that embed their own players (HLS `.m3u8`, `.mp4`, etc.) into offline files. Paste a link, pick a quality, hit download — with a real-time progress queue.
+
+> ⚠️ For personal/offline use only. Please support the actual creators.
+
+**Language / ภาษา:** [ไทย](#-vdo-downloader) · [English](#)
+
+## Quick start
+
+```bash
+./run.sh
+```
+
+The first run creates a Python venv and installs dependencies, then opens **http://localhost:8787** automatically (the server listens on 127.0.0.1 only — your machine).
+
+**Requirements:** Python 3, ffmpeg (`brew install ffmpeg`), and Microsoft Edge or Chrome for the headless-browser extraction mode (a bundled headless Chromium can be installed instead via `playwright install chromium`).
+
+## Usage
+
+1. Paste the URL of the **watch page** (movie/episode page) or a direct `.m3u8`/`.mp4` link and press Enter.
+2. Wait for the scan — sites that hide their videos well need the headless browser and can take 30–90 seconds.
+3. Pick a quality from the table (best first) and hit **Add to download queue**.
+4. Watch the queue card for progress (% / speed / ETA); press ✕ to cancel.
+5. The output folder is editable in the UI (default: `downloads/`). HLS streams are merged (video + audio) with ffmpeg automatically.
+
+Up to 2 downloads run in parallel; the rest wait in the queue.
+
+## How it works (4 layers)
+
+These sites ship various anti-download mechanisms, so extraction tries each layer from fastest to heaviest:
+
+1. **yt-dlp directly** — covers hundreds of embedded players / file hosts / bare mp4 links. YouTube embeds found this way are treated as trailers and skipped.
+2. **Static HTML probe** — fetches the page itself (with browser-like Referer/User-Agent) and:
+   - scans for `.m3u8/.mp4/.mpd` URLs, including escaped ones (`https:\/\/...`, `\u0026`),
+   - unpacks Dean-Edwards-packed JavaScript (`eval(function(p,a,c,k,e,d))`),
+   - follows iframes up to 2 levels deep with per-level Referer chaining,
+   - digs player URLs out of query strings (`?link=...`) and `window.destinationURL`-style vars — jumping straight past pre-roll ad gates,
+   - filters ad MP4s (via `adSettings`/`adverts`/`skipSeconds` context + known ad domains).
+3. **Abyss/tonytonychopper-family extractor** (`app/abyss.py`) — for sites like FairyAnime: this player family hides the real URL inside multi-layer packed JS (`Cookie.Run('<base64>')`) — unpacked statically with Node.js (no browser needed). The whole chain shares one cookie session (the m3u8 endpoint answers `null` without the earlier steps' cookies) and requires `Accept: */*` (an HTML Accept header gets a `null` answer).
+4. **Headless-browser sniffing (Playwright, Edge/Chrome)** — for players that fetch the stream via JS only when you press play (e.g. jwplayer configs with just a `vdoId`):
+   - opens the player page (preferring player URLs dug up in step 2 — skipping ad gates),
+   - handles lazily: moves `data-src` → `src` on lazy iframes, clicks skip-ad / close-popup / server-picker / play buttons (falling back to JS clicks when overlays intercept), cycles Dooplay-style servers one at a time (the first is usually dead),
+   - captures requests AND responses — HLS manifests fetched by hls.js with extension-less tokenized URLs are caught by content-type (`vnd.apple.mpegurl` / `dash+xml`), and XHR bodies are sniffed for `#EXTM3U` / JSON-embedded `.m3u8` URLs,
+   - answers blocked ad requests locally (scripts, pixels, and videos with proper 206/Content-Range handling) to pass "ads must display" gates,
+   - for players that host ads and the real episode on the same CDN, a video element with a duration over 300s is the real episode — its source is captured directly,
+   - returns the real URL **with the exact Referer/Origin/UA/Cookies the player used**, replayed by the downloader.
+
+Additionally, `app/ytstrip.py` transparently unwraps CDNs that disguise video segments as fake-PNG-wrapped files (named `.webp`).
+
+## If a site still fails
+
+- Try pasting the player's **iframe URL** directly (right-click the player → Inspect → find `<iframe src="...">`).
+- Open DevTools → Network tab → filter `m3u8` → press play → copy the URL and paste it into the tool.
+- Login-required sites: add a `cookiefile` in `app/extractor.py` (`_ydl_options`).
+- Sites with real DRM (Widevine etc.) are **not supported**.
+- New ad domains slipping through: add them to `SKIP_RE` in `app/sniffer.py`.
+- **Current limitation**: some abyss-family player hosts serve files only to live player sessions and answer 403 to plain replays — the tool still captures the episode URL and offers an "original" quality attempt; if that fails, use the DevTools method above.
+
+## Code layout
+
+```
+app/
+├── main.py        # FastAPI: API routes + web UI serving + SSE progress
+├── extractor.py   # 4 layers: yt-dlp → static probe → abyss family → browser sniff
+├── abyss.py       # Node-assisted unpacker for the Abyss/tonytonychopper family
+├── sniffer.py     # headless browser: auto-click + capture media requests + headers/cookies
+├── ytstrip.py     # unwraps fake-PNG-wrapped HLS segments at the HTTP layer
+├── downloader.py  # queue + worker threads + progress hooks + cancel + cookie replay
+└── static/        # web UI (plain HTML/CSS/JS, no build step)
+```
+
+API for scripts: `POST /api/extract` {url}, `POST /api/download` {url, format_id, media_url?, media_headers?, cookies?}, `GET /api/jobs`, `GET /api/events` (SSE)
