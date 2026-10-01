@@ -168,7 +168,7 @@ def _fetch(url: str, referer: str, timeout: int = 12) -> str:
 
 
 _PAGE_TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.S | re.I)
-_GENERIC_TITLES = {"master", "playlist", "index", "video", "main", "hls", "stream"}
+_GENERIC_TITLES = {"master", "_master", "playlist", "index", "video", "main", "hls", "stream"}
 
 
 def _page_title(html: str) -> str | None:

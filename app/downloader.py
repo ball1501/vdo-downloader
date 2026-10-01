@@ -302,10 +302,14 @@ def _write_cookie_file(cookies: list) -> str | None:
 
 def _outtmpl_base(title: str | None) -> str:
     """Prefer the human title for the filename; fall back to the stream's
-    own (often an opaque id like dWE9zvPZ)."""
+    own (often an opaque id like dWE9zvPZ). Capped to a byte-safe length
+    (macOS/APFS rejects filenames over 255 UTF-8 bytes)."""
     t = (title or "").strip()
     if t:
-        return t.replace("/", "_").replace("\\", "_") + ".%(ext)s"
+        t = t.replace("/", "_").replace("\\", "_")
+        while len(t.encode("utf-8")) > 140:
+            t = t[:-1]
+        return t + ".%(ext)s"
     return "%(title)s.%(ext)s"
 
 

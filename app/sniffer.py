@@ -29,7 +29,7 @@ _MIME_RE = re.compile(r"mpegurl|dash\+xml", re.I)
 SKIP_RE = re.compile(
     r"(?:youtube|youtu\.be|youtube-nocookie|googles\.video|doubleclick|"
     r"googlesyndication|googletagmanager|cdnbm168|cdend\.com|morphify|"
-    r"storage\.googleapis\.com/mediastorage)",
+    r"storage\.googleapis\.com/mediastorage|psstatic\.cdn\.bcebos\.com)",
     re.I,
 )
 
@@ -255,11 +255,19 @@ def _click_matches(frame, key_prefix: str, sel: str, tried: dict, max_retries: i
                 tried[key] = (state if isinstance(state, int) else 0) + 1
 
 
+_master_cache: dict[str, bool] = {}
+
+
 def _master(captured: list[dict], user_agent: str) -> dict | None:
     for m in captured:
-        if (m.get("mime") or ".m3u8" in m["url"].lower()) and _is_master_playlist(
-            m["url"], m.get("referer"), user_agent
-        ):
+        if not (m.get("mime") or ".m3u8" in m["url"].lower()):
+            continue
+        u = m["url"]
+        verdict = _master_cache.get(u)
+        if verdict is None:
+            verdict = _is_master_playlist(u, m.get("referer"), user_agent)
+            _master_cache[u] = verdict
+        if verdict:
             return m
     return None
 
@@ -351,12 +359,11 @@ def sniff_media(
 
     captured: list[dict] = []
     title = None
+    _probe_budget = {"n": 0}
 
-    def _remember(req, mime: bool = False) -> None:
-        u = req.url
+    def _remember_media(u: str, h: dict, mime: bool = False) -> None:
         if any(m["url"] == u for m in captured):
             return
-        h = req.headers
         captured.append(
             {
                 "url": u,
@@ -371,21 +378,42 @@ def sniff_media(
         u = req.url
         if SKIP_RE.search(u) or not MEDIA_RE.search(u):
             return
-        _remember(req)
+        _remember_media(u, req.headers)
 
     def on_response(resp) -> None:
         # manifests fetched by hls.js/dash.js: the URL shape is unreliable,
-        # the content-type is the trustworthy signal
+        # the content-type is the trustworthy signal. Custom players go
+        # further and fetch them as plain XHR (sometimes wrapped in JSON) —
+        # sniff small text bodies for #EXTM3U / embedded .m3u8 URLs.
         try:
+            req = resp.request
+            u = resp.url
             ct = (resp.headers or {}).get("content-type", "")
         except Exception:  # noqa: BLE001
             return
-        u = resp.url
-        if SKIP_RE.search(u) or not _MIME_RE.search(ct):
+        if SKIP_RE.search(u):
             return
-        if any(m["url"] == u for m in captured):
+        if _MIME_RE.search(ct):
+            _remember_media(u, req.headers, mime=True)
             return
-        _remember(resp.request, mime=True)
+        try:
+            if (
+                req.resource_type in ("xhr", "fetch")
+                and _probe_budget["n"] < 25
+                and "video" not in ct
+                and "octet-stream" not in ct
+            ):
+                _probe_budget["n"] += 1
+                body = resp.text()
+                if body.lstrip().startswith("#EXTM3U"):
+                    _remember_media(u, req.headers, mime=True)
+                elif ".m3u8" in body:
+                    for mu in re.findall(
+                        r'https?://[^"\'\s\\<>]+\.m3u8[^"\'\s\\<>]*', body
+                    )[:4]:
+                        _remember_media(mu, req.headers, mime=True)
+        except Exception:  # noqa: BLE001 - body may be gone / binary
+            pass
 
     with sync_playwright() as p:
         launch_args = ["--autoplay-policy=no-user-gesture-required", "--mute-audio"]
@@ -411,6 +439,13 @@ def sniff_media(
             timer.start()
 
         context.on("page", _delayed_close)
+        # some embed providers (zmdb.net etc.) bounce foreign/bot sessions to
+        # their consumer homepage — abort that so the real player stays
+        for pattern in ("**://www.baidu.com/**", "**://*.baidu.com/**", "**://baidu.com/**"):
+            try:
+                context.route(pattern, lambda route: route.abort())
+            except Exception:  # noqa: BLE001
+                pass
         # ad scripts / pixels / ad videos: served locally so players that gate
         # playback on "ads displayed" proceed (their real domains are
         # DNS-blocked here, which they would otherwise count as AdBlock)

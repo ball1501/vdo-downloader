@@ -40,7 +40,8 @@
 4. **สแกนด้วยเบราว์เซอร์จริง (headless Edge/Chrome ผ่าน Playwright)** — สำหรับเว็บที่ player เรียก API เอา m3u8 ตอนกดเล่น เช่น jwplayer ที่ config มีแต่ `vdoId`:
    - เปิดหน้า player (เลือกเปิด player URL ที่ขุดได้จากขั้น 2 ก่อน — ไม่ต้องเจอโฆษณา)
    - จัดการอัตโนมัติ: ย้าย `data-src` → `src` ของ lazy iframe, กดปุ่มข้ามโฆษณา/ปิด popup/กดเล่น (คลิกธรรมดาไม่ได้เมื่อไหร่สลับเป็น JS click), กดเลือกเซิร์ฟเวอร์ทีละตัว (ธีม Dooplay — server แรกมักตาย)
-   - ดักฟังทั้ง request และ response — manifest ของ hls.js ที่ URL ไม่มีนามสกุลก็จับได้จาก content-type (`vnd.apple.mpegurl` / `dash+xml`)
+   - ดักฟังทั้ง request และ response — manifest ของ hls.js ที่ URL ไม่มีนามสกุลก็จับได้จาก content-type (`vnd.apple.mpegurl` / `dash+xml`) และ sniff body ของ XHR หา m3u8 ที่ซ่อนอยู่ใน JSON ของ custom player
+   - ขวาง redirect ไปหน้า homepage ที่ player embed บางเจ้าทำ (เช่น zmdb.net → baidu)
    - ตอบจำลองโฆษณาที่ถูกบล็อก (สคริปต์/พิกเซล/วิดีโอพร้อม Range header) เพื่อผ่านประตูแบบ "โฆษณาต้องแสดงก่อนถึงเล่นได้"
    - ได้ URL จริง **พร้อม Referer/Origin/UA/Cookie ที่ player ใช้จริง** → ส่งต่อให้ตัวดาวน์โหลด replay ตอนโหลดไฟล์ (CDN พวกนี้เช็ค header อีกชั้น)
 
