@@ -38,8 +38,9 @@
    - กรอง mp4 โฆษณาทิ้ง (อิงบริบท `adSettings`/`adverts`/`skipSeconds` + โดเมนโฆษณาที่รู้จัก)
 3. **สแกนด้วยเบราว์เซอร์จริง (headless Edge/Chrome ผ่าน Playwright)** — สำหรับเว็บที่ player เรียก API เอา m3u8 ตอนกดเล่น เช่น jwplayer ที่ config มีแต่ `vdoId`:
    - เปิดหน้า player (เลือกเปิด player URL ที่ขุดได้จากขั้น 2 ก่อน — ไม่ต้องเจอโฆษณา)
-   - คลิกปุ่มอัตโนมัติ: ข้ามโฆษณา / ปิด popup / เลือกเซิร์ฟเวอร์ / กดเล่น
-   - ดักฟัง network request ทั้งหมด รอ `master.m3u8` (กันหลง mp4 โฆษณา)
+   - จัดการอัตโนมัติ: ย้าย `data-src` → `src` ของ lazy iframe, กดปุ่มข้ามโฆษณา/ปิด popup/กดเล่น (คลิกธรรมดาไม่ได้เมื่อไหร่สลับเป็น JS click), กดเลือกเซิร์ฟเวอร์ทีละตัว (ธีม Dooplay — server แรกมักตาย)
+   - ดักฟังทั้ง request และ response — manifest ของ hls.js ที่ URL ไม่มีนามสกุลก็จับได้จาก content-type (`vnd.apple.mpegurl` / `dash+xml`)
+   - ตอบจำลองโฆษณาที่ถูกบล็อก (สคริปต์/พิกเซล/วิดีโอพร้อม Range header) เพื่อผ่านประตูแบบ "โฆษณาต้องแสดงก่อนถึงเล่นได้"
    - ได้ URL จริง **พร้อม Referer/Origin/UA/Cookie ที่ player ใช้จริง** → ส่งต่อให้ตัวดาวน์โหลด replay ตอนโหลดไฟล์ (CDN พวกนี้เช็ค header อีกชั้น)
 
 4. **แกะ segment ที่แปลงร่าง** (`app/ytstrip.py`) — CDN บางเจ้า (เช่น ตระกูล fastfastcdn) หุ้ม segment MPEG-TS ด้วยหัว PNG ปลอม ~545 ไบต์ และตั้งชื่อไฟล์เป็น `.webp` ทำให้ ffmpeg merge ไม่ได้ (`Postprocessing: Error opening output files`) ตัว patch ระดับ HTTP ของ yt-dlp จะตัดหัวปลอมออกและแก้ Content-Length ให้ตรงโดยอัตโนมัติ — response ปกติไม่ถูกแตะ
@@ -51,6 +52,7 @@
 - เว็บที่ต้อง login: เพิ่ม `cookiefile` ใน `app/extractor.py` (`_ydl_options`) ได้
 - เว็บที่ใช้ DRM จริง (Widevine ฯลฯ) **ไม่รองรับ**
 - โดเมนโฆษณาตัวใหม่ที่หลุดกรอง: เพิ่มใน `SKIP_RE` ที่ `app/sniffer.py` ได้เลย
+- **ขีดจำกัดปัจจุบัน**: player host บางเจ้า (เช่น abyssplayer, marimo) fingerprint จับ headless browser และห้ามเล่น/redirect ออก — ตัว sniffer ยังเดินถึงหน้า player ได้แต่ player ไม่ยอมเริ่ม กรณีนี้ต้องเล่นผ่านเบราว์เซอร์จริงแล้วเอา URL m3u8 จาก DevTools มาวางแทน
 
 ## โครงสร้างโค้ด
 
